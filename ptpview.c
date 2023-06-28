@@ -51,35 +51,53 @@ static int ptpview_handler(void *priv, struct ptp_context *context,
 		uint8_t *bvram = bmp_vram();
 		if (bvram != NULL) {
 			size_all += 960 * 480;
+			head.v2 = 1;
 		}
 
 		// Load LV RAM
 		uint8_t *lvram = NULL;
+#if 0
 		struct vram_info *vram_info = get_yuv422_vram();
 		if (vram_info != NULL) lvram = vram_info->vram;
 		if (lvram != NULL) {
-			size_all += vram_lv.width * vram_lv.pitch;
+			size_all += vram_lv.width * vram_lv.pitch * 4;
+			head.v1 = 1;
 		}
+#endif
 
+		// Send frame header
 		context->send_data(context->handle, &head, 4, size_all, 0, 0, 0);
+
+		// Send bvram last, since it's overlayed on top
 		if (bvram != NULL) {
 			context->send_data(context->handle, bvram, 960 * 480, 0, 0, 0, 0);
 		}
+
+		// Send lvram
 		if (lvram != NULL) {
-			context->send_data(context->handle, lvram, vram_lv.width * vram_lv.pitch, 0, 0, 0, 0);
+			context->send_data(context->handle, lvram, vram_lv.width * vram_lv.pitch * 4, 0, 0, 0, 0);
 		}
 	} else if (param1 == VIEW_SPEC) {
 		struct Info {
 			uint32_t lv_pitch;
-			uint32_t 
+			uint32_t lv_width;
 		}info = {
-			vram_lv.pitch
+			vram_lv.pitch,
+			vram_lv.width,
 		};
 
+		uint32_t palette[256];
+		for (int i = 0; i < 256; i++) {
+			palette[i] = shamem_read(LCD_Palette[3 * i]);
+			if (palette[i] == 0) {
+				palette[i] = LCD_Palette[3 * i + 2];
+			}
+		}
+
 		size_all = sizeof(struct Info);
-		size_all += 256;
+		size_all += sizeof(palette);
 		context->send_data(context->handle, &info, sizeof(struct Info), size_all, 0, 0, 0);
-		context->send_data(context->handle, LCD_Palette, 256, 0, 0, 0, 0);
+		context->send_data(context->handle, palette, sizeof(palette), 0, 0, 0, 0);
 	}
 
 	struct ptp_msg msg = {
