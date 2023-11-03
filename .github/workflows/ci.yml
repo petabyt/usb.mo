@@ -2,9 +2,9 @@ name: Build Magic Lantern
 
 on:
   push:
-    branches: [ gh-actions ]
+    branches: [ master ]
   pull_request:
-    branches: [ gh-actions ]
+    branches: [ master ]
 
 jobs:
   build:
@@ -39,9 +39,3 @@ jobs:
 
     - name: Clone magiclantern_simplified
       run: cd .. && git clone https://github.com/reticulatedpines/magiclantern_simplified
-    
-    - name: Compile all
-      run: make
-    
-    - name: Compile Modules
-      run: cd modules; make
