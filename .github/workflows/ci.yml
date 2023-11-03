@@ -26,7 +26,6 @@ jobs:
     
     - name: Setup Pip/Python 2
       run: |
-        sudo apt install python-is-python2
         wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
         python2.7 get-pip.py
         rm get-pip.py
