@@ -10,98 +10,37 @@
 #include <imgconv.h>
 #include <mem.h>
 #include <exmem.h>
+#include "main.h"
 
 struct menu_entry ptpview_menu[] = {
 	{
-		.name = "PTP Liveview",
+		.name = "USB",
 		.select = NULL,
-		.help = "ML PTP Liveview V2",
+		.help = "USB Extensions for Magic Lantern",
 	},
 };
 
-#pragma pack(push, 1)
-struct LvHeader {
-	uint8_t digic;
-	uint8_t v1;
-	uint8_t v2;
-	uint8_t v3;
-};
-#pragma pack(pop)
-
-#define VIEW_FRAME 0
-#define VIEW_SPEC 1
-
-static int ptpview_handler(void *priv, struct ptp_context *context,
-						   uint32_t opcode, uint32_t session, uint32_t transaction,
-						   uint32_t param1, uint32_t param2, uint32_t param3, uint32_t param4, uint32_t param5)
+static int ml_ext_handler(void *priv, struct ptp_context *context,
+	uint32_t opcode, uint32_t session, uint32_t transaction,
+	uint32_t param1, uint32_t param2, uint32_t param3, uint32_t param4, uint32_t param5) 
 {
-	int size_all = 0;
-	if (param1 == VIEW_FRAME) {
-		struct LvHeader head;
-		head.digic = 0;
-	#ifdef CONFIG_DIGIC_45
-		head.digic = 4;
-	#endif
-		head.v1 = 0;
-		head.v2 = 0;
-		head.v3 = 0;
-		size_all += 4;
+	int rc;
+	if (param1 == PTP_ML_VIEW_FRAME) {
+		rc = ptp_lv_get_vram(context);
+	} else if (param1 == PTP_ML_VIEW_SPEC) {
+		rc = ptp_lv_get_vram_info(context);
+	} else {
+		rc = -1;
+	}
 
-		// Load BMP VRAM
-		uint8_t *bvram = bmp_vram();
-		if (bvram != NULL) {
-			size_all += 960 * 480;
-			head.v2 = 1;
-		}
-
-		// Load LV RAM
-		uint8_t *lvram = NULL;
-#if 0
-		struct vram_info *vram_info = get_yuv422_vram();
-		if (vram_info != NULL) lvram = vram_info->vram;
-		if (lvram != NULL) {
-			size_all += vram_lv.width * vram_lv.pitch * 4;
-			head.v1 = 1;
-		}
-#endif
-
-		// Send frame header
-		context->send_data(context->handle, &head, 4, size_all, 0, 0, 0);
-
-		// Send bvram last, since it's overlayed on top
-		if (bvram != NULL) {
-			context->send_data(context->handle, bvram, 960 * 480, 0, 0, 0, 0);
-		}
-
-		// Send lvram
-		if (lvram != NULL) {
-			context->send_data(context->handle, lvram, vram_lv.width * vram_lv.pitch * 4, 0, 0, 0, 0);
-		}
-	} else if (param1 == VIEW_SPEC) {
-		struct Info {
-			uint32_t lv_pitch;
-			uint32_t lv_width;
-		}info = {
-			vram_lv.pitch,
-			vram_lv.width,
-		};
-
-		uint32_t palette[256];
-		for (int i = 0; i < 256; i++) {
-			palette[i] = shamem_read(LCD_Palette[3 * i]);
-			if (palette[i] == 0) {
-				palette[i] = LCD_Palette[3 * i + 2];
-			}
-		}
-
-		size_all = sizeof(struct Info);
-		size_all += sizeof(palette);
-		context->send_data(context->handle, &info, sizeof(struct Info), size_all, 0, 0, 0);
-		context->send_data(context->handle, palette, sizeof(palette), 0, 0, 0, 0);
+	if (rc < 0) {
+		rc = 0x2002;
+	} else {
+		rc = 0x2001;
 	}
 
 	struct ptp_msg msg = {
-		.id = 0x2001,
+		.id = rc,
 		.session = session,
 		.transaction = transaction,
 		.param_count = 0,
@@ -112,11 +51,49 @@ static int ptpview_handler(void *priv, struct ptp_context *context,
 	return 0;
 }
 
+static int chdk_ext_handler(void *priv, struct ptp_context *context,
+	uint32_t opcode, uint32_t session, uint32_t transaction,
+	uint32_t param1, uint32_t param2, uint32_t param3, uint32_t param4, uint32_t param5) 
+{
+	int rc = 0;
+
+	struct ptp_msg msg = {
+		.session = session,
+		.transaction = transaction,
+		.param_count = 0,
+	};
+
+	switch (param1) {
+	case PTP_CHDK_Version:
+		msg.param_count = 2;
+		msg.param[0] = PTP_CHDK_VERSION_MAJOR;
+		msg.param[1] = PTP_CHDK_VERSION_MINOR;
+		break;
+	case PTP_CHDK_UploadFile:
+		rc = ptp_chdk_upload_file(context);
+		break;
+	}
+
+	if (rc) {
+		rc = 0x2002;
+	} else {
+		rc = 0x2001;
+	}
+
+	msg.id = rc;
+
+	context->send_resp(context->handle, &msg);
+
+	return 0;
+}
+
 unsigned int ptpview_init()
 {
 	menu_add("Display", ptpview_menu, COUNT(ptpview_menu));
 
-	ptp_register_handler(0x9996, &ptpview_handler, 0);
+	// ML is very weird about the headers for these functions
+	ptp_register_handler(PTP_ML_OPCODE, (void *)&ml_ext_handler, 0);
+	ptp_register_handler(PTP_CHDK_OPCODE, (void *)&chdk_ext_handler, 0);
 
 	return 0;
 }
