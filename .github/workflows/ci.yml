@@ -29,10 +29,17 @@ jobs:
       with:
         release: '5-2016-q3'
 
-    - name: Clone magiclantern_simplified
+    - name: Clone magiclantern_simplified, compile 5D3
       run: |
         cd ..
         git clone https://github.com/reticulatedpines/magiclantern_simplified
         cd magiclantern_simplified
         cd platform/5D3.123
+        make
+        cd ../..
+
+    - name: Compile module
+      run: |
+        cp -r . magiclantern_simplified/modules/ptpview
+        cd magiclantern_simplified/modules/ptpview
         make
