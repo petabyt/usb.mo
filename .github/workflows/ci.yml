@@ -36,10 +36,11 @@ jobs:
         cd magiclantern_simplified
         cd platform/5D3.123
         make
-        cd ../..
 
     - name: Compile module
       run: |
-        cp -r . magiclantern_simplified/modules/ptpview
+        cd ..
+        ls
+        cp -r 'usb.mo' magiclantern_simplified/modules/ptpview
         cd magiclantern_simplified/modules/ptpview
         make
