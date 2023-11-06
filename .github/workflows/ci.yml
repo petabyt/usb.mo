@@ -20,16 +20,9 @@ jobs:
         sudo apt update
         sudo apt upgrade
         sudo apt-get install libc6:i386 libncurses5:i386 libstdc++6:i386 \
-        autoconf python2.7-minimal python-is-python2 wget gcc build-essential \
+        autoconf python2.7-minimal wget gcc build-essential \
         mercurial libtool git libglib2.0-dev libpixman-1-dev zlib1g-dev \
         libgtk2.0-dev xz-utils mtools netcat-openbsd
-    
-    - name: Setup Pip/Python 2
-      run: |
-        wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
-        python2.7 get-pip.py
-        rm get-pip.py
-        pip install docutils
     
     - name: Install arm-none-eabi-gcc
       uses: fiam/arm-none-eabi-gcc@v1
