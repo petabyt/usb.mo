@@ -30,4 +30,9 @@ jobs:
         release: '5-2016-q3'
 
     - name: Clone magiclantern_simplified
-      run: cd .. && git clone https://github.com/reticulatedpines/magiclantern_simplified
+      run: |
+        cd ..
+        git clone https://github.com/reticulatedpines/magiclantern_simplified
+        cd magiclantern_simplified
+        cd platform/5D3.123
+        make
